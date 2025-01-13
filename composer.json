@@ -9,6 +9,11 @@
             "VictorCodigo\\DoctrinePaginatorAdapter\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "VictorCodigo\\DoctrinePaginatorAdapter\\Tests\\": "tests/"
+        }
+    },
     "authors": [
         {
             "name": "Víctor",
