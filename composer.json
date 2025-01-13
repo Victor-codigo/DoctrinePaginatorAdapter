@@ -4,6 +4,12 @@
     "type": "library",
     "license": "GPL-3.0-only",
     "version": "1.0.0",
+    "abandoned": false,
+    "archive": {
+        "exclude": [
+            "tests/"
+        ]
+    },
     "autoload": {
         "psr-4": {
             "VictorCodigo\\DoctrinePaginatorAdapter\\": "src/"
@@ -28,6 +34,7 @@
         "phpstan/phpstan-phpunit": "^2.0"
     },
     "require": {
-        "doctrine/orm": "^3.3"
+        "php": ">=8.1",
+        "doctrine/orm": "^2.20"
     }
 }
