@@ -18,5 +18,8 @@
     "require-dev": {
         "phpunit/phpunit": "^11.5",
         "friendsofphp/php-cs-fixer": "^3.67"
+    },
+    "require": {
+        "doctrine/orm": "^3.3"
     }
 }
