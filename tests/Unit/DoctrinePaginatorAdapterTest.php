@@ -177,6 +177,19 @@ class DoctrinePaginatorAdapterTest extends TestCase
         return $this->createObjectTest($paginator);
     }
 
+    /**
+     * @param \Traversable<mixed>       $page
+     * @param \Traversable<QueryResult> $queryPageItemsExpected
+     */
+    private function assertPageIsOk(\Traversable $page, \Traversable $queryPageItemsExpected, int $pageItems): void
+    {
+        foreach ($page as $item) {
+            $this->assertInstanceOf(\Traversable::class, $item);
+            $this->assertEquals($item, $queryPageItemsExpected);
+            $this->assertCount($pageItems, $item);
+        }
+    }
+
     #[Test]
     public function itShouldCreateAPaginator(): void
     {
@@ -420,9 +433,9 @@ class DoctrinePaginatorAdapterTest extends TestCase
             ->expects($this->exactly($pageEnd - $pageIni + 1))
             ->method('getIterator')
             ->willReturnOnConsecutiveCalls(
-                new \ArrayIterator($queryPageItemsExpected[0]),
-                new \ArrayIterator($queryPageItemsExpected[1]),
-                new \ArrayIterator($queryPageItemsExpected[2]),
+                new \ArrayIterator([new \ArrayIterator($queryPageItemsExpected[0])]),
+                new \ArrayIterator([new \ArrayIterator($queryPageItemsExpected[1])]),
+                new \ArrayIterator([new \ArrayIterator($queryPageItemsExpected[2])]),
             );
 
         $query
@@ -435,12 +448,15 @@ class DoctrinePaginatorAdapterTest extends TestCase
             );
 
         $return = $object->getPagesRange($pageIni, $pageEnd, $pageItems);
+        $pages = iterator_to_array($return);
 
-        foreach ($return as $item) {
-            // @phpstan-ignore method.alreadyNarrowedType
-            $this->assertInstanceOf(\Traversable::class, $item);
-            $this->assertContainsEquals(iterator_to_array($item), $queryPageItemsExpected);
-            $this->assertCount($pageItems, $item);
+        $this->assertCount(3, $pages);
+
+        $pageCount = 0;
+        foreach ($pages as $page) {
+            $this->assertPageIsOk($page, new \ArrayIterator($queryPageItemsExpected[$pageCount]), $pageItems);
+
+            ++$pageCount;
         }
     }
 
@@ -507,8 +523,8 @@ class DoctrinePaginatorAdapterTest extends TestCase
             ->expects($this->exactly(2))
             ->method('getIterator')
             ->willReturnOnConsecutiveCalls(
-                new \ArrayIterator($queryPageItemsExpected[0]),
-                new \ArrayIterator($queryPageItemsExpected[1]),
+                new \ArrayIterator([new \ArrayIterator($queryPageItemsExpected[0])]),
+                new \ArrayIterator([new \ArrayIterator($queryPageItemsExpected[1])]),
             );
 
         $query
@@ -520,12 +536,16 @@ class DoctrinePaginatorAdapterTest extends TestCase
             );
 
         $return = $object->getPagesRange($pageIni, $pageEnd, $pageItems);
+        $pages = iterator_to_array($return);
 
-        foreach ($return as $item) {
-            // @phpstan-ignore method.alreadyNarrowedType
-            $this->assertInstanceOf(\Traversable::class, $item);
-            $this->assertContainsEquals(iterator_to_array($item), $queryPageItemsExpected);
-            $this->assertCount($pageItems, $item);
+        $this->assertCount(2, $pages);
+
+        $pageCount = 0;
+        foreach ($pages as $page) {
+            $pageItemsExpected = new \ArrayIterator($queryPageItemsExpected[$pageCount]);
+            $this->assertPageIsOk($page, $pageItemsExpected, $pageItems);
+
+            ++$pageCount;
         }
     }
 
@@ -545,7 +565,7 @@ class DoctrinePaginatorAdapterTest extends TestCase
         $paginator
             ->expects($this->once())
             ->method('getIterator')
-            ->willReturn(new \ArrayIterator($queryPageItemsExpected));
+            ->willReturn(new \ArrayIterator([new \ArrayIterator($queryPageItemsExpected)]));
 
         $query
             ->expects($this->once())
@@ -553,25 +573,12 @@ class DoctrinePaginatorAdapterTest extends TestCase
             ->willReturn(0);
 
         $return = $object->getPagesRange($pageIni, $pageEnd, $pageItems);
+        $pages = iterator_to_array($return);
 
-        foreach ($return as $item) {
-            // @phpstan-ignore method.alreadyNarrowedType
-            $this->assertInstanceOf(\Traversable::class, $item);
-            $this->assertEquals($item, new \ArrayIterator($queryPageItemsExpected));
-            $this->assertCount($pageItems, $item);
-        }
-    }
+        $this->assertCount(1, $pages);
 
-    /**
-     * @param \Traversable<mixed> $page
-     * @param QueryResult[]       $queryPageItemsExpected
-     */
-    public function assertPageIsOk(\Traversable $page, array $queryPageItemsExpected, int $pageItems): void
-    {
-        foreach ($page as $item) {
-            $this->assertInstanceOf(\Traversable::class, $item);
-            $this->assertEquals($item, new \ArrayIterator($queryPageItemsExpected));
-            $this->assertCount($pageItems, $item);
+        foreach ($pages as $item) {
+            $this->assertPageIsOk($item, new \ArrayIterator($queryPageItemsExpected), $pageItems);
         }
     }
 
@@ -581,20 +588,33 @@ class DoctrinePaginatorAdapterTest extends TestCase
         $pageItems = 5;
         $queryResult = $this->getQueryResult();
         $queryPageItemsExpected = $queryResult;
+        $pagesTotal = (int) ceil(count($queryResult) / $pageItems);
 
         $query = $this->mockQuery($this->queryResult, $this->entityManager, $pageItems);
         $paginator = $this->mockPaginator($query, $this->queryResult);
         $object = $this->createObjectTest($paginator);
+
+        $paginator
+            ->expects($this->exactly($pagesTotal))
+            ->method('getIterator')
+            ->willReturnOnConsecutiveCalls(
+                new \ArrayIterator([new \ArrayIterator(array_slice($queryPageItemsExpected, 0, 5))]),
+                new \ArrayIterator([new \ArrayIterator(array_slice($queryPageItemsExpected, 5, 5))]),
+                new \ArrayIterator([new \ArrayIterator(array_slice($queryPageItemsExpected, 10, 5))]),
+                new \ArrayIterator([new \ArrayIterator(array_slice($queryPageItemsExpected, 15, 5))]),
+            );
 
         $return = $object->getAllPages($pageItems);
         $pages = iterator_to_array($return);
 
         $this->assertCount(4, $pages);
 
+        $pageCount = 1;
         foreach ($pages as $page) {
-            // @phpstan-ignore method.alreadyNarrowedType
-            $this->assertInstanceOf(\Traversable::class, $page);
-            $this->assertPageIsOk($page, $queryPageItemsExpected, $pageItems);
+            $pageItemsExpected = new \ArrayIterator(array_slice($queryPageItemsExpected, ($pageCount - 1) * $pageItems, $pageItems));
+            $this->assertPageIsOk($page, $pageItemsExpected, $pageItems);
+
+            ++$pageCount;
         }
     }
 
@@ -609,15 +629,18 @@ class DoctrinePaginatorAdapterTest extends TestCase
         $paginator = $this->mockPaginator($query, $this->queryResult);
         $object = $this->createObjectTest($paginator);
 
+        $paginator
+            ->expects($this->once())
+            ->method('getIterator')
+            ->willReturn(new \ArrayIterator([new \ArrayIterator($queryPageItemsExpected)]));
+
         $return = $object->getAllPages($pageItems);
         $pages = iterator_to_array($return);
 
         $this->assertCount(1, $pages);
 
         foreach ($pages as $page) {
-            // @phpstan-ignore method.alreadyNarrowedType
-            $this->assertInstanceOf(\Traversable::class, $page);
-            $this->assertPageIsOk($page, $queryPageItemsExpected, $pageItems);
+            $this->assertPageIsOk($page, new \ArrayIterator($queryPageItemsExpected), count($queryPageItemsExpected));
         }
     }
 
@@ -631,14 +654,17 @@ class DoctrinePaginatorAdapterTest extends TestCase
         $paginator = $this->mockPaginator($query, $queryResult);
         $object = $this->createObjectTest($paginator);
 
+        $paginator
+            ->expects($this->once())
+            ->method('getIterator')
+            ->willReturn(new \ArrayIterator($queryResult));
+
         $return = $object->getAllPages($pageItems);
         $pages = iterator_to_array($return);
 
         $this->assertCount(1, $pages);
 
         foreach ($pages as $page) {
-            // @phpstan-ignore method.alreadyNarrowedType
-            $this->assertInstanceOf(\Traversable::class, $page);
             $this->assertEquals(0, iterator_count($page));
         }
     }
@@ -1003,6 +1029,11 @@ class DoctrinePaginatorAdapterTest extends TestCase
         $query = $this->mockQuery($this->queryResult, $this->entityManager, $pageItems);
         $paginator = $this->mockPaginator($query, $this->queryResult);
         $object = $this->createObjectTest($paginator);
+
+        $paginator
+            ->expects($this->exactly(2))
+            ->method('getIterator')
+            ->willReturn(new \ArrayIterator([]));
 
         $return = $object->getIterator();
 
